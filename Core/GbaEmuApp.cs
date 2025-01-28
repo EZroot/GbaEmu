@@ -1,4 +1,3 @@
-// GbaEmuApp.cs
 using SDL2Engine.Core;
 using System;
 using GbaEmu.Core.Utils;
@@ -13,28 +12,34 @@ namespace GbaEmu.Core
         private CPU _cpu;
         private MMU _mmu;
         private GPU _gpu;
-        private Audio _audio; // Not shown, but referenced
+        private Audio _audio; // Not shown
         private JoyPad _joyPad;
 
-        private const int GB_CPU_FREQ = 4194304;
-        // If your engine calls Update() ~60 times/second, that's ~69905 cycles each update
+        // ~60 FPS => ~69905 cycles/frame on real GB
         private const int CYCLES_PER_FRAME = 69905;
 
         public void Initialize(IServiceProvider serviceProvider)
         {
-            // TODO: Set a valid ROM path here
-            var romPath = EmuInfo.ROM_PATH + EmuInfo.HELLO_WORLD_PATH;//EmuInfo.TEST_CPU_INSTRS_PATH;
-            if (string.IsNullOrEmpty(romPath))
-                throw new ArgumentException("No ROM path specified.");
+            string romPath = EmuInfo.ROM_PATH + EmuInfo.HELLO_WORLD_PATH;
 
             var renderService = serviceProvider.GetService<IRenderService>() ?? throw new Exception();
-            var windowService  = serviceProvider.GetService<IWindowService>() ?? throw new Exception();
+            var windowService = serviceProvider.GetService<IWindowService>() ?? throw new Exception();
+
             var cart = new Cartridge(romPath);
             _mmu = new MMU(cart);
             _cpu = new CPU(_mmu);
             _gpu = new GPU(windowService, renderService, _mmu);
-            _audio = new Audio();
+            _audio = new Audio(); // not shown
             _joyPad = new JoyPad();
+
+            // Force BG on, etc. in case the ROM doesn't do it right away:
+            // 0x91 => 1001_0001 binary => LCD on, BG on, OBJ on, etc. 
+            _mmu.WriteByte(0xFF40, 0x91);
+
+            // Simple DMG palette (BGP). Bits are 2-bits per color, from right to left:
+            // For example: 0xE4 => 11100100 => color0=00(white), color1=01(light), color2=11(darker), color3=11(darkest).
+            // Choose your favorite. Let's do 0xFC => 11111100 => color0=00(white), color1=11, color2=11, color3=11(black)
+            _mmu.WriteByte(0xFF47, 0xFC);
 
             _audio.Initialize();
         }
@@ -44,15 +49,9 @@ namespace GbaEmu.Core
             int cyclesSoFar = 0;
             while (cyclesSoFar < CYCLES_PER_FRAME)
             {
-                // Step the CPU
                 int usedCycles = _cpu.Step();
-
-                // Update GPU with actual cycles used
                 _gpu.UpdateGraphics(usedCycles);
-
-                // Update audio with actual cycles used
                 _audio.UpdateAudio(usedCycles);
-
                 cyclesSoFar += usedCycles;
             }
         }
@@ -64,13 +63,12 @@ namespace GbaEmu.Core
 
         public void RenderGui()
         {
-            // GUI stuff if needed
+            // Optionally draw debug GUI
         }
 
         public void Shutdown()
         {
             _gpu.Dispose();
-            // Dispose other resources if needed
         }
     }
 }

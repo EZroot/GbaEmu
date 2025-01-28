@@ -1,52 +1,90 @@
-public class Cartridge
+using System;
+using System.IO;
+
+namespace GbaEmu.Core
 {
-    public byte[] ROM { get; }
-    public byte[] RAM { get; private set; }
-    private int currentROMBank = 1;
-    private int currentRAMBank = 0;
-    private bool ramEnabled = false;
-    private int mode = 0; // 0 for ROM banking mode, 1 for RAM banking mode
-
-    public Cartridge(string romPath)
+    public class Cartridge
     {
-        if (string.IsNullOrEmpty(romPath))
-            throw new ArgumentException("ROM path is empty.");
-        if (!File.Exists(romPath))
-            throw new FileNotFoundException("ROM file not found", romPath);
+        public byte[] ROM { get; }
+        public byte[] RAM { get; private set; }
 
-        ROM = File.ReadAllBytes(romPath);
-        RAM = new byte[0x8000]; // Up to 32K of RAM
-    }
+        // MBC1 example
+        private bool _ramEnabled;
+        private int _romBank = 1;
+        private int _ramBank;
+        private int _bankingMode; // 0 = ROM banking, 1 = RAM banking
 
-    public void HandleBanking(int address, byte value)
-    {
-        if (address < 0x2000)
+        public Cartridge(string romPath)
         {
-            // Enable RAM
-            ramEnabled = (value & 0x0F) == 0x0A;
+            if (string.IsNullOrEmpty(romPath))
+                throw new ArgumentException("ROM path is empty.");
+            if (!File.Exists(romPath))
+                throw new FileNotFoundException("ROM file not found", romPath);
+
+            ROM = File.ReadAllBytes(romPath);
+            RAM = new byte[0x8000]; // Up to 32KB (for MBC1 example)
         }
-        else if (address < 0x4000)
+
+        public byte ReadROMBanked(int addr)
         {
-            // Change ROM bank
-            currentROMBank = value & 0x1F;
-            if (currentROMBank == 0) currentROMBank = 1;
+            // For addresses 0x4000-0x7FFF (banked area):
+            // bankSize = 0x4000
+            int bankedAddr = (addr - 0x4000) + (_romBank * 0x4000);
+            bankedAddr %= ROM.Length;
+            return ROM[bankedAddr];
         }
-        else if (address < 0x6000)
+
+        public byte ReadRAMBanked(int addr)
         {
-            // Change RAM bank or ROM bank for upper area
-            if (mode == 0)
+            if (!_ramEnabled) return 0xFF;
+            // Each bank is 0x2000 in MBC1
+            int ramAddr = (addr - 0xA000) + (_ramBank * 0x2000);
+            ramAddr %= RAM.Length;
+            return RAM[ramAddr];
+        }
+
+        public void WriteRAMBanked(int addr, byte value)
+        {
+            if (!_ramEnabled) return;
+            int ramAddr = (addr - 0xA000) + (_ramBank * 0x2000);
+            ramAddr %= RAM.Length;
+            RAM[ramAddr] = value;
+        }
+
+        public void HandleBanking(ushort addr, byte value)
+        {
+            // MBC1 range checks
+            if (addr < 0x2000)
             {
-                currentROMBank = (currentROMBank & 0x1F) | ((value & 0x03) << 5);
+                // RAM Enable
+                _ramEnabled = ((value & 0x0F) == 0x0A);
             }
-            else
+            else if (addr < 0x4000)
             {
-                currentRAMBank = value & 0x03;
+                // Set lower 5 bits of ROM bank
+                _romBank = (value & 0x1F);
+                if (_romBank == 0) _romBank = 1;
             }
-        }
-        else if (address < 0x8000)
-        {
-            // Change mode
-            mode = value & 0x01;
+            else if (addr < 0x6000)
+            {
+                // Either upper bits of ROM bank or RAM bank
+                if (_bankingMode == 0)
+                {
+                    // ROM banking
+                    _romBank = (_romBank & 0x1F) | ((value & 0x03) << 5);
+                    if ((_romBank & 0x1F) == 0) _romBank |= 1;
+                }
+                else
+                {
+                    // RAM banking
+                    _ramBank = value & 0x03;
+                }
+            }
+            else if (addr < 0x8000)
+            {
+                // Change mode
+                _bankingMode = value & 0x01;
+            }
         }
     }
 }
