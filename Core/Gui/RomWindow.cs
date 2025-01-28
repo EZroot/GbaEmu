@@ -10,7 +10,10 @@ public class RomWindow
     
     private Gameboy _gameboy;
     private string _romPathBuffer = DefaultRomPath;
-    private bool dirExists;
+    private bool _dirExists;
+    private Gameboy.CycleMode _cycleMode = Gameboy.CycleMode.FullCycle;
+    private int _stepCycle = 10;
+    
     public RomWindow(Gameboy gameboy)
     {
         _gameboy = gameboy;
@@ -20,16 +23,44 @@ public class RomWindow
     {
         if (ImGui.Begin("RomWindow"))
         {
+
+            ImGui.InputInt("##cycles", ref _stepCycle);
+            ImGui.SameLine();
+            if (ImGui.Button("Step"))
+            {
+                for (var i = 0; i < _stepCycle; i++)
+                {
+                    _gameboy.StepCycle(true);
+                }
+            }
+
             if (ImGui.Button("Stop"))
             {
                 _gameboy.ShutDown();
             }
+
+            ImGui.SameLine();
             
+            if (ImGui.BeginCombo("Cycle Mode", _cycleMode.ToString()))
+            {
+                foreach (Gameboy.CycleMode mode in System.Enum.GetValues(typeof(Gameboy.CycleMode)))
+                {
+                    bool isSelected = (mode == _cycleMode);
+                    if (ImGui.Selectable(mode.ToString(), isSelected))
+                    {
+                        _cycleMode = mode;
+                    }
+                    if (isSelected)
+                        ImGui.SetItemDefaultFocus();
+                }
+                ImGui.EndCombo();
+            }
+            ImGui.Separator();
             if (ImGui.InputText("Rom Path",ref _romPathBuffer, 1024))
             {
-                dirExists = Directory.Exists(_romPathBuffer);
+                _dirExists = Directory.Exists(_romPathBuffer);
             }
-            if (dirExists)
+            if (_dirExists)
             {
                 var files = Directory.GetFiles(_romPathBuffer);
                 for (var i = 0; i < files.Length; i++)
@@ -39,7 +70,7 @@ public class RomWindow
 
                     if (ImGui.Button($"Load##{i}"))
                     {
-                        _gameboy.Start(file);
+                        _gameboy.Start(file,_cycleMode);
                     }
 
                     ImGui.SameLine();

@@ -46,14 +46,18 @@ namespace GbaEmu.Core
             _interruptMasterEnable = true;
         }
 
-        public int Step()
+        public int Step(bool logOpcode = false)
         {
             if (_interruptMasterEnable)
                 HandleInterrupts();
 
             byte opcode = _mmu.ReadByte(PC);
             PC++;
-            
+
+            if (logOpcode)
+            {
+                Debug.Log($"Executed Opcode 0x{opcode:X2} at PC=0x{PC - 1:X4}");
+            }
             int cyclesUsed = OpcodeHelper.Execute(this, opcode); // Call the helper
 
             // Update Timer

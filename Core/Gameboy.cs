@@ -1,3 +1,5 @@
+using SDL2;
+using SDL2Engine.Core.Input;
 using SDL2Engine.Core.Rendering.Interfaces;
 using SDL2Engine.Core.Utils;
 using SDL2Engine.Core.Windowing.Interfaces;
@@ -12,6 +14,9 @@ public class Gameboy
     private Audio _audio; // Not shown
     private JoyPad _joyPad;
 
+    private CycleMode _cycleMode = CycleMode.FullCycle;
+    private bool _goToNextCycle;
+    
     // ~60 FPS => ~69905 cycles/frame on real GB
     private const int CYCLES_PER_FRAME = 69905;
 
@@ -25,11 +30,18 @@ public class Gameboy
         _renderService = render;
         _windowService = window;
     }
+
+    public enum CycleMode
+    {
+        FullCycle,
+        StepCycle
+    }
     
-    public void Start(string romPath)
+    public void Start(string romPath, CycleMode cycleMode = CycleMode.FullCycle)
     {
         Debug.Log("Gameboy Started: " + romPath);
         IsStarted = true;
+        _cycleMode = cycleMode;
         var cart = new Cartridge(romPath);
         _mmu = new MMU(cart);
         _cpu = new CPU(_mmu);
@@ -52,15 +64,24 @@ public class Gameboy
     public void Update(float deltaTime)
     {
         if (!IsStarted) return;
-        
-        int cyclesSoFar = 0;
-        while (cyclesSoFar < CYCLES_PER_FRAME)
+
+        if (_cycleMode == CycleMode.FullCycle)
         {
-            int usedCycles = _cpu.Step();
-            _gpu.UpdateGraphics(usedCycles);
-            _audio.UpdateAudio(usedCycles);
-            cyclesSoFar += usedCycles;
+            int cyclesSoFar = 0;
+            while (cyclesSoFar < CYCLES_PER_FRAME)
+            {
+                int usedCycles = StepCycle();
+                cyclesSoFar += usedCycles;
+            }
         }
+    }
+
+    public int StepCycle(bool logOpcode = false)
+    {
+        int usedCycles = _cpu.Step(logOpcode);
+        _gpu.UpdateGraphics(usedCycles);
+        _audio.UpdateAudio(usedCycles);
+        return usedCycles;
     }
 
     public void Render()
