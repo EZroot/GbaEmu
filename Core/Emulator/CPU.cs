@@ -20,7 +20,7 @@ namespace GbaEmu.Core
         public const byte FLAG_C = 0x10; // Carry
 
         // Internal references
-        private bool _interruptMasterEnable;
+        public bool _interruptMasterEnable;
         internal MMU _mmu;      // Expose to OpcodeHelper
         private readonly Timer _timer;
 

@@ -199,13 +199,6 @@ public static class OpcodeHelper
     /// </summary>
     private static void SetInterruptMasterEnable(CPU cpu, bool enable)
     {
-        // If you'd rather not expose a property, you could do reflection here.
-        // For simplicity, consider adding a public method on CPU for setting IME:
-        //   cpu.SetInterruptMasterEnable(enable);
-        // For now, let's do a hack with reflection:
-
-        var field = typeof(CPU).GetField("_interruptMasterEnable",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        if (field != null) field.SetValue(cpu, enable);
+        cpu._interruptMasterEnable = enable;
     }
 }
