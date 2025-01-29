@@ -25,6 +25,8 @@ public class Gameboy
     
     public bool IsStarted { get; private set; }
     public CPU CPU => _cpu;
+    public GPU GPU => _gpu;
+    
     public Gameboy(IRenderService render, IWindowService window)
     {
         _renderService = render;

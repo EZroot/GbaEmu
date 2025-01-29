@@ -1,116 +1,143 @@
 using System;
+using SDL2Engine.Core.Utils;
 
 namespace GbaEmu.Core
 {
     public class MMU
     {
-        private const int MemorySize = 0x10000; // 64KB for original GB
+        private const int MemorySize = 0x10000; // 64KB for original Game Boy
         private readonly byte[] _memory = new byte[MemorySize];
         private readonly Cartridge _cartridge;
 
+        public Cartridge Cartridge => _cartridge;
+
         public MMU(Cartridge cart)
         {
-            _cartridge = cart;
-            // Load first 0x8000 bytes (ROM bank 0) into _memory
-            for (int i = 0; i < Math.Min(0x8000, cart.ROM.Length); i++)
-                _memory[i] = cart.ROM[i];
+            _cartridge = cart ?? throw new ArgumentNullException(nameof(cart));
+            Debug.Log("MMU created. 64KB internal memory allocated.");
         }
 
         public byte ReadByte(ushort addr)
         {
-            if (addr < 0x4000)
+            if (addr < 0x8000) // Cartridge ROM
             {
-                // Bank 0
-                return _memory[addr];
+                return _cartridge.ReadByte(addr);
             }
-            else if (addr < 0x8000)
+
+            if (addr >= 0xA000 && addr < 0xC000) // External RAM
             {
-                // Banked region
-                return _cartridge.ReadROMBanked(addr);
+                return _cartridge.ReadByte(addr);
             }
-            else if (addr >= 0xA000 && addr < 0xC000)
+
+            if (addr == 0xFF00) // Joypad
             {
-                // External RAM
-                return _cartridge.ReadRAMBanked(addr);
-            }
-            else if (addr == 0xFF00)
-            {
-                // Joypad stub
                 return HandleJoypadRead();
             }
-            else if (addr == 0xFF0F)
-            {
-                // IF register
-                return _memory[addr];
-            }
-            else if (addr >= 0xFF10 && addr <= 0xFF3F)
-            {
-                // Audio registers stub
-                return 0x00; 
-            }
-            else if (addr == 0xFF46)
-            {
-                // DMA stub read
-                return _memory[addr];
-            }
-            // … Add more stubs as needed for I/O
 
-            return _memory[addr];
+            if (addr == 0xFF0F) // Interrupt flag register
+            {
+                return _memory[addr];
+            }
+
+            if (addr >= 0xFF10 && addr <= 0xFF3F) // Audio registers (stubbed)
+            {
+                return 0x00;
+            }
+
+            if (addr == 0xFF46) // DMA register
+            {
+                return _memory[addr];
+            }
+
+            if (addr < MemorySize) // General memory
+            {
+                return _memory[addr];
+            }
+
+            Debug.LogWarning($"MMU: Read from unmapped address 0x{addr:X4}. Returning 0xFF.");
+            return 0xFF; // Default value for unmapped memory
         }
 
         public void WriteByte(ushort addr, byte value)
         {
-            if (addr < 0x8000)
+            if (addr < 0x8000) // Cartridge ROM
             {
-                // MBC1 bank switching
-                _cartridge.HandleBanking(addr, value);
+                _cartridge.WriteByte(addr, value);
                 return;
             }
 
-            if (addr >= 0xA000 && addr < 0xC000)
+            if (addr >= 0xA000 && addr < 0xC000) // External RAM
             {
-                // External RAM
-                _cartridge.WriteRAMBanked(addr, value);
+                _cartridge.WriteByte(addr, value);
                 return;
             }
 
-            if (addr == 0xFF00)
+            if (addr == 0xFF00) // Joypad
             {
-                // Joypad stub
                 HandleJoypadWrite(value);
                 return;
             }
-            else if (addr == 0xFF46)
+
+            if (addr == 0xFF01) // Serial data register
             {
-                // DMA stub
+                _memory[addr] = value; // Store the data
+                Debug.Log($"MMU: Serial data written: 0x{value:X2} ('{(char)value}')");
+                return;
+            }
+
+            if (addr == 0xFF02) // Serial control register
+            {
+                _memory[addr] = value;
+                if (value == 0x81) // Transfer complete
+                {
+                    byte data = _memory[0xFF01]; // Get the data from 0xFF01
+                    Console.Write((char)data);  // Print ASCII character
+                    Debug.Log($"MMU: Serial transfer complete. Output: '{(char)data}'");
+                }
+                return;
+            }
+
+            if (addr == 0xFF46) // DMA register
+            {
                 OAMDMA(value);
                 return;
             }
-            // … More stubs for LCD, audio, etc.
 
-            _memory[addr] = value;
+            if (addr == 0xFF50) // Boot ROM disable
+            {
+                _cartridge.WriteByte(addr, value);
+                return;
+            }
+
+            if (addr < MemorySize) // General memory
+            {
+                _memory[addr] = value;
+                return;
+            }
+
+            Debug.LogWarning($"MMU: Write to unmapped address 0x{addr:X4} with value 0x{value:X2} ignored.");
         }
 
-        // Example OAM DMA stub (copies from XX00-XX9F to FE00-FE9F)
         private void OAMDMA(byte startAddrHigh)
         {
             ushort startAddr = (ushort)(startAddrHigh << 8);
-            for (int i = 0; i < 0xA0; i++)
+            for (int i = 0; i < 0xA0; i++) // OAM is 160 bytes
             {
                 byte data = ReadByte((ushort)(startAddr + i));
-                WriteByte((ushort)(0xFE00 + i), data);
+                _memory[0xFE00 + i] = data;
             }
+            Debug.Log($"MMU: OAM DMA from 0x{startAddr:X4} to 0xFE00 completed.");
         }
 
         private byte HandleJoypadRead()
         {
-            // Very rough skeleton: real logic checks row/column bits
-            return 0xCF; // Some default “no button pressed”
+            // Stubbed: No buttons pressed
+            return 0xCF;
         }
 
         private void HandleJoypadWrite(byte value)
         {
-            // Stub: do nothing or store bits
+            // Stubbed: Record row select
             _memory[0xFF00] = (byte)(value & 0x30);
         }
     }

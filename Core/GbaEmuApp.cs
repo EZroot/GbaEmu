@@ -17,6 +17,8 @@ namespace GbaEmu.Core
 
         private OpcodeWindow _opcodeWindow;
         private RomWindow _romWindow;
+        private GPUWindow _gpuWindow;
+        
         public void Initialize(IServiceProvider serviceProvider)
         {
             _renderService = serviceProvider.GetService<IRenderService>() ?? throw new Exception();
@@ -26,6 +28,7 @@ namespace GbaEmu.Core
             
             _romWindow = new RomWindow(_gameboy);
             _opcodeWindow = new OpcodeWindow(_gameboy);
+            _gpuWindow = new GPUWindow(_gameboy);
         }
 
         public void Update(float deltaTime)
@@ -42,6 +45,7 @@ namespace GbaEmu.Core
         {
             _romWindow.ShowWindow();
             _opcodeWindow.ShowWindow();
+            _gpuWindow.ShowWindow();
         }
 
         public void Shutdown()

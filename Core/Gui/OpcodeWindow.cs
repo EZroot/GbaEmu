@@ -19,8 +19,16 @@ namespace GbaEmu.Core.Gui
             
             if (ImGui.Begin("Opcode Debugger"))
             {
+                ImGui.Text($"PC: {_gameboy.CPU.PC} A:{_gameboy.CPU.A} B:{_gameboy.CPU.B} C:{_gameboy.CPU.C} L:{_gameboy.CPU.L} Intrpt:{_gameboy.CPU._interruptMasterEnable}");
                 // You can limit how many rows you show or use scrolling.
                 // Here we show all 64KB in a 16-column table.
+                var log = "";
+                foreach (var entry in _gameboy.CPU.OpcodeLogEntries)
+                {
+                    log += $"PC:{entry.PC} OP:{entry.Opcode}\n";
+                }
+                ImGui.TextUnformatted(log);
+                ImGui.SameLine();
                 if (ImGui.BeginTable("MemTable", 16, ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY))
                 {
                     // Optional: limit table height

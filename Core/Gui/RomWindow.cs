@@ -6,14 +6,14 @@ namespace GbaEmu.Core.Gui;
 
 public class RomWindow
 {
-    public const string DefaultRomPath = EmuInfo.ROM_PATH + EmuInfo.HELLO_WORLD_PATH;
+    public const string DefaultRomPath = EmuInfo.ROM_PATH + EmuInfo.HELLO_WORLD_PATH;//EmuInfo.TEST_CPU_INSTRS_PATH;
     
     private Gameboy _gameboy;
     private string _romPathBuffer = DefaultRomPath;
     private bool _dirExists;
-    private Gameboy.CycleMode _cycleMode = Gameboy.CycleMode.FullCycle;
-    private int _stepCycle = 10;
-    
+    private Gameboy.CycleMode _cycleMode = Gameboy.CycleMode.StepCycle;
+    private int _stepCycle = 69905;
+    private int _totalCycles = 0;
     public RomWindow(Gameboy gameboy)
     {
         _gameboy = gameboy;
@@ -23,14 +23,15 @@ public class RomWindow
     {
         if (ImGui.Begin("RomWindow"))
         {
-
+            ImGui.Text($"Cycle: {_totalCycles}");
+            ImGui.SameLine();
             ImGui.InputInt("##cycles", ref _stepCycle);
             ImGui.SameLine();
             if (ImGui.Button("Step"))
             {
                 for (var i = 0; i < _stepCycle; i++)
                 {
-                    _gameboy.StepCycle(true);
+                    _totalCycles += _gameboy.StepCycle(true);
                 }
             }
 
@@ -56,11 +57,8 @@ public class RomWindow
                 ImGui.EndCombo();
             }
             ImGui.Separator();
-            if (ImGui.InputText("Rom Path",ref _romPathBuffer, 1024))
-            {
-                _dirExists = Directory.Exists(_romPathBuffer);
-            }
-            if (_dirExists)
+            ImGui.InputText("Rom Path", ref _romPathBuffer, 1024);
+            if (Directory.Exists(_romPathBuffer))
             {
                 var files = Directory.GetFiles(_romPathBuffer);
                 for (var i = 0; i < files.Length; i++)
