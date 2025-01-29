@@ -19,30 +19,33 @@ namespace GbaEmu.Core.Gui
             
             if (ImGui.Begin("Opcode Debugger"))
             {
-                if (ImGui.BeginTable("CPU_Registers", 2, ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg))
+                if (ImGui.BeginTable("CPU_Registers", 3, ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg))
                 {
                     ImGui.TableSetupColumn("##RegL");
                     ImGui.TableSetupColumn("##RegR");
 
-                    void TableRow(string leftReg, int leftVal, string rightReg, int rightVal)
+                    void TableRow(string leftReg, int leftVal, string midReg, int midVal, string rightReg, int rightVal)
                     {
                         ImGui.TableNextRow();
                         ImGui.TableSetColumnIndex(0);
-                        ImGui.Text($"{leftReg}:{leftVal:X2}");
+                        ImGui.Text($"{leftReg}: {leftVal:X2}");
                         ImGui.TableSetColumnIndex(1);
-                        ImGui.Text($"{rightReg}:{rightVal:X2}");
+                        ImGui.Text($"{midReg}: {midVal:X2}");
+                        ImGui.TableSetColumnIndex(2);
+                        ImGui.Text($"{rightReg}: {rightVal:X4}");
                     }
 
-                    TableRow("A", _gameboy.CPU.A, "E", _gameboy.CPU.E);
-                    TableRow("B", _gameboy.CPU.B, "F", _gameboy.CPU.F);
-                    TableRow("C", _gameboy.CPU.C, "H", _gameboy.CPU.H);
-                    TableRow("D", _gameboy.CPU.D, "L", _gameboy.CPU.L);
+                    TableRow("A", _gameboy.CPU.A, "E", _gameboy.CPU.E, "BC", _gameboy.CPU.BC);
+                    TableRow("B", _gameboy.CPU.B, "F", _gameboy.CPU.F, "DE", _gameboy.CPU.DE);
+                    TableRow("C", _gameboy.CPU.C, "H", _gameboy.CPU.H, "HL", _gameboy.CPU.HL);
+                    TableRow("D", _gameboy.CPU.D, "L", _gameboy.CPU.L, "", 0);
+                    TableRow("Halted", _gameboy.CPU.IsHalted ? 1 : 0, "Stopped", _gameboy.CPU.IsStopped ? 1 : 0, "IME_SET", _gameboy.CPU.IME_Set ? 1 : 0);
 
                     ImGui.TableNextRow();
                     ImGui.TableSetColumnIndex(0);
-                    ImGui.Text($"PC: {_gameboy.CPU.PC:X2}");
+                    ImGui.Text($"PC: {_gameboy.CPU.PC:X4}");
                     ImGui.TableSetColumnIndex(1);
-                    ImGui.Text("Intrpt:"+(_gameboy.CPU._interruptMasterEnable ? "Enabled" : "Disabled"));
+                    ImGui.Text($"SP: {_gameboy.CPU.SP:X4}");
                     ImGui.EndTable();
                 }
 
@@ -51,7 +54,7 @@ namespace GbaEmu.Core.Gui
                 var log = "";
                 foreach (var entry in _gameboy.CPU.OpcodeLogEntries)
                 {
-                    log += $"PC:{entry.PC} OP:{entry.Opcode}\n";
+                    log += $"PC:{entry.PC} OP:{entry.Opcode} CYC:{entry.CyclesUsed} CYCT:{entry.TotalCyclesUsed}\n";
                 }
                 ImGui.TextUnformatted(log);
                 ImGui.SameLine();
@@ -84,8 +87,9 @@ namespace GbaEmu.Core.Gui
                     }
                     ImGui.EndTable();
                 }
-                ImGui.End();
             }
+            ImGui.End();
+
         }
     }
 }

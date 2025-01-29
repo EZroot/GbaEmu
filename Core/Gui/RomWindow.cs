@@ -76,7 +76,8 @@ public class RomWindow
                 }
             }
 
-            ImGui.End();
         }
+        ImGui.End();
+
     }
 }
