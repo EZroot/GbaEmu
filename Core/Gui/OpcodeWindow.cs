@@ -19,7 +19,33 @@ namespace GbaEmu.Core.Gui
             
             if (ImGui.Begin("Opcode Debugger"))
             {
-                ImGui.Text($"PC: {_gameboy.CPU.PC} A:{_gameboy.CPU.A} B:{_gameboy.CPU.B} C:{_gameboy.CPU.C} L:{_gameboy.CPU.L} Intrpt:{_gameboy.CPU._interruptMasterEnable}");
+                if (ImGui.BeginTable("CPU_Registers", 2, ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg))
+                {
+                    ImGui.TableSetupColumn("##RegL");
+                    ImGui.TableSetupColumn("##RegR");
+
+                    void TableRow(string leftReg, int leftVal, string rightReg, int rightVal)
+                    {
+                        ImGui.TableNextRow();
+                        ImGui.TableSetColumnIndex(0);
+                        ImGui.Text($"{leftReg}:{leftVal:X2}");
+                        ImGui.TableSetColumnIndex(1);
+                        ImGui.Text($"{rightReg}:{rightVal:X2}");
+                    }
+
+                    TableRow("A", _gameboy.CPU.A, "E", _gameboy.CPU.E);
+                    TableRow("B", _gameboy.CPU.B, "F", _gameboy.CPU.F);
+                    TableRow("C", _gameboy.CPU.C, "H", _gameboy.CPU.H);
+                    TableRow("D", _gameboy.CPU.D, "L", _gameboy.CPU.L);
+
+                    ImGui.TableNextRow();
+                    ImGui.TableSetColumnIndex(0);
+                    ImGui.Text($"PC: {_gameboy.CPU.PC:X2}");
+                    ImGui.TableSetColumnIndex(1);
+                    ImGui.Text("Intrpt:"+(_gameboy.CPU._interruptMasterEnable ? "Enabled" : "Disabled"));
+                    ImGui.EndTable();
+                }
+
                 // You can limit how many rows you show or use scrolling.
                 // Here we show all 64KB in a 16-column table.
                 var log = "";

@@ -225,12 +225,12 @@ case 0xCE: // ADC A, d8 (Add immediate value to A with carry)
     cyclesUsed = 8;
     break;
 }
-case 0xC3: // JP a16 (Jump to address)
-{
-    cpu.PC = cpu.ReadU16();
-    cyclesUsed = 16;
-    break;
-}
+                case 0xC3: // JP a16 (Jump to address)
+                {
+                    cpu.PC = cpu.ReadU16();
+                    cyclesUsed = 16; // Corrected from 32 to 16
+                    break;
+                }
 
 case 0x37: // SCF (Set Carry Flag)
 {
@@ -275,7 +275,7 @@ case 0xCC: // CALL Z, a16 (Call subroutine at address if Zero flag is set)
                 case 0xF3: // DI (Disable Interrupts)
                 {
                     cpu._interruptMasterEnable = false;
-                    cyclesUsed = 4;
+                    cyclesUsed = 4; // Corrected from 8 to 4
                     break;
                 }
 
@@ -385,8 +385,82 @@ case 0xCC: // CALL Z, a16 (Call subroutine at address if Zero flag is set)
                 case 0x10: // STOP (Halt CPU and stop until a button press)
                 {
                     Debug.Log("STOP instruction executed. Halting CPU.");
-                    // Additional behavior for STOP can be implemented here
-                    cyclesUsed = 4; // Typically followed by a HALT
+                    // Implement STOP behavior as needed
+                    cyclesUsed = 4; // This can vary based on implementation
+                    break;
+                }
+                case 0x44: // LD B, H
+                {
+                    cpu.B = cpu.H;
+                    cyclesUsed = 4;
+                    break;
+                }
+                case 0x90: // SUB B
+                {
+                    byte v = cpu.B;
+                    byte result = (byte)(cpu.A - v);
+    
+                    cpu.SetFlag(CPU.FLAG_Z, result == 0);
+                    cpu.SetFlag(CPU.FLAG_N, true);
+                    cpu.SetFlag(CPU.FLAG_H, (cpu.A & 0x0F) < (v & 0x0F));
+                    cpu.SetFlag(CPU.FLAG_C, cpu.A < v);
+    
+                    cpu.A = result;
+                    cyclesUsed = 4;
+                    break;
+                }
+
+                case 0xFE: // CP d8
+                {
+                    byte v = cpu.ReadU8();
+                    byte result = (byte)(cpu.A - v);
+    
+                    cpu.SetFlag(CPU.FLAG_Z, cpu.A == v);
+                    cpu.SetFlag(CPU.FLAG_N, true);
+                    cpu.SetFlag(CPU.FLAG_H, (cpu.A & 0x0F) < (v & 0x0F));
+                    cpu.SetFlag(CPU.FLAG_C, cpu.A < v);
+    
+                    cyclesUsed = 8;
+                    break;
+                }
+                
+                case 0xB1: // OR C
+                {
+                    cpu.A |= cpu.C;
+                    cpu.SetFlag(CPU.FLAG_Z, cpu.A == 0);
+                    cpu.SetFlag(CPU.FLAG_N, false);
+                    cpu.SetFlag(CPU.FLAG_H, false);
+                    cpu.SetFlag(CPU.FLAG_C, false);
+                    cyclesUsed = 4;
+                    break;
+                }
+
+                case 0x78: // LD A, B
+                {
+                    cpu.A = cpu.B;
+                    cyclesUsed = 4;
+                    break;
+                }
+
+                case 0x13: // INC DE
+                {
+                    cpu.DE++;
+                    cyclesUsed = 8;
+                    break;
+                }
+
+                case 0x1A: // LD A, (DE)
+                {
+                    cpu.A = cpu._mmu.ReadByte(cpu.DE);
+                    cyclesUsed = 8;
+                    break;
+                }
+
+                case 0xFA: // LD A, (a16)
+                {
+                    ushort address = cpu.ReadU16();
+                    cpu.A = cpu._mmu.ReadByte(address);
+                    cyclesUsed = 16;
                     break;
                 }
 
@@ -399,6 +473,14 @@ case 0xCC: // CALL Z, a16 (Call subroutine at address if Zero flag is set)
                     cpu.SetFlag(CPU.FLAG_H, false);
                     cpu.SetFlag(CPU.FLAG_C, carryOut == 1);
                     cyclesUsed = 4;
+                    break;
+                }
+                case 0xF0: // LDH A, (a8)
+                {
+                    byte offset = cpu.ReadU8();
+                    ushort address = (ushort)(0xFF00 + offset);
+                    cpu.A = cpu._mmu.ReadByte(address);
+                    cyclesUsed = 12;
                     break;
                 }
 

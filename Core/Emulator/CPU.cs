@@ -105,7 +105,8 @@ namespace GbaEmu.Core
 
             if (logOpcode)
             {
-                OpcodeLogEntries.Add(new OpcodeLogEntry($"0x{PC - 1:X4}", $"0x{opcode:X2}"));
+                Debug.Log($"0x{PC - 1:X4} - 0x{opcode:X2}");
+                OpcodeLogEntries.Add(new OpcodeLogEntry($"0x{PC - 1:X4}", $"0x{opcode:X4}"));
             }
 
             int cyclesUsed = OpcodeHelper.Execute(this, opcode);
@@ -126,24 +127,74 @@ namespace GbaEmu.Core
         }
 
         public bool GetFlag(byte flagMask) => (F & flagMask) != 0;
+        public void ResetFlags()
+        {
+            SetFlag(CPU.FLAG_N, false);
+            SetFlag(CPU.FLAG_H, false);
+            SetFlag(CPU.FLAG_C, false);
+        }
+
+        public void SetZeroFlag(bool condition)
+        {
+            SetFlag(CPU.FLAG_Z, condition);
+        }
 
         public byte ReadU8()
         {
-            byte value = _mmu.ReadByte(PC); // Read the byte from memory
+            byte value = _mmu.ReadByte(PC);
+            PC++; // Increment PC after reading
+            return value;
+        }
+
+        public ushort ReadU16()
+        {
+            byte low = _mmu.ReadByte(PC);
+            PC++; // Increment PC after reading low byte
+            byte high = _mmu.ReadByte(PC);
+            PC++; // Increment PC after reading high byte
+            return (ushort)((high << 8) | low);
+        }
+
+        /// <summary>
+        /// Helper method to push the current PC onto the stack.
+        /// </summary>
+        private void PushPC()
+        {
+            _mmu.WriteByte((ushort)(SP - 1), (byte)(PC >> 8));
+            _mmu.WriteByte((ushort)(SP - 2), (byte)(PC & 0xFF));
+            SP -= 2;
+        }
+
+        /// <summary>
+        /// Helper method to pop the PC from the stack.
+        /// </summary>
+        public ushort PopPC()
+        {
+            byte low = _mmu.ReadByte(SP);
+            byte high = _mmu.ReadByte((ushort)(SP + 1));
+            SP += 2;
+            return (ushort)((high << 8) | low);
+        }
+        
+        /// <summary>
+        /// Pushes a byte onto the stack.
+        /// </summary>
+        public void Push(byte value)
+        {
+            _mmu.WriteByte(--SP, value);
+        }
+
+        /// <summary>
+        /// Pops a byte from the stack.
+        /// </summary>
+        public byte Pop()
+        {
+            byte value = _mmu.ReadByte(SP);
+            SP++;
             return value;
         }
 
         
-        public ushort ReadU16()
-        {
-            byte low = _mmu.ReadByte(PC);
-            byte high = _mmu.ReadByte((ushort)(PC + 1));
-            return (ushort)((high << 8) | low);
-        }
-
-
-
-
         private void HandleInterrupts()
         {
             if (!_interruptMasterEnable) return;
@@ -151,7 +202,7 @@ namespace GbaEmu.Core
             byte IF = _mmu.ReadByte(0xFF0F);
             byte IE = _mmu.ReadByte(0xFFFF);
             byte triggered = (byte)(IF & IE);
-            //Debug.Log($"CPU: Interrupt Flags (IF=0x{IF:X2}, IE=0x{IE:X2}), Triggered=0x{triggered:X2}");
+
             if (triggered == 0) return;
 
             // Check each interrupt source
@@ -163,16 +214,10 @@ namespace GbaEmu.Core
                     // Acknowledge interrupt
                     IF &= (byte)~mask;
                     _mmu.WriteByte(0xFF0F, IF);
-                    //Debug.Log($"CPU: Acknowledged interrupt {i}, IF=0x{IF:X2}");
                     _interruptMasterEnable = false;
 
                     // Push PC onto stack
-                    SP--;
-                    _mmu.WriteByte(SP, (byte)(PC >> 8));
-                    //Debug.Log($"CPU: Pushed high byte of PC (0x{(byte)(PC >> 8):X2}) to SP=0x{SP:X4}");
-                    SP--;
-                    _mmu.WriteByte(SP, (byte)(PC & 0xFF));
-                    //Debug.Log($"CPU: Pushed low byte of PC (0x{(byte)(PC & 0xFF):X2}) to SP=0x{SP:X4}");
+                    PushPC();
 
                     // Jump to the correct interrupt vector
                     switch (i)
